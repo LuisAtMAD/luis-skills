@@ -3,12 +3,13 @@ name: planner
 description: >
   BLOCKING: Always invoke this skill — NEVER use `gh issue create` directly. This skill is
   the only correct way to create manager tasks because it also sets the task category label,
-  adds the issue to the "Luis Planner" project, and sets the Owner field.
-  Raw `gh` commands skip all three. Trigger on: "new task", "create task",
+  adds the issue to the "Luis Planner" project, and sets the Owner and Topic fields.
+  Raw `gh` commands skip all of these. Trigger on: "new task", "create task",
   "add a task", "remind me to", "log a task", "make a note", "follow up on", "I need to",
   "don't let me forget", "track this", "add to my list", or any clear intent to log a
   personal to-do or action item — even without the word "task".
   Task categories: Follow-Up, Action Item, Decision, Admin, Strategic.
+  Topics: Supply Chain, Data Analysis, Software Dev, KPI Meeting, Top Production Issues, Continuous Improvement, Business Transformation, Other.
 ---
 
 # Manager Task Creator
@@ -16,7 +17,7 @@ description: >
 Turn freeform input into a published GitHub issue in `LuisAtMAD/Luis`, added to the "Luis Planner" project.
 
 > **IMPORTANT — do not bypass this skill.**
-> Using `gh issue create` directly skips three required steps: setting the category label, adding the issue to the Luis Planner project board, and setting the Owner field. Always invoke this skill instead.
+> Using `gh issue create` directly skips required steps: setting the category label, adding the issue to the Luis Planner project board, and setting the Owner and Topic fields. Always invoke this skill instead.
 
 ---
 
@@ -66,16 +67,33 @@ Extract any date or deadline mentioned. Accept natural language ("Friday", "end 
 
 Infer from the notes (e.g., who owns the outcome or who this is about). If not mentioned and cannot be inferred, ask: *"Who is the owner of this task?"*
 
+### Topic
+
+Infer the topic from the description using these options. Show your inference in the draft — Luis always confirms before the issue is created.
+
+| Topic | When to use |
+|-------|-------------|
+| **Supply Chain** | Suppliers, procurement, parts, inventory, logistics |
+| **Data Analysis** | Reports, dashboards, queries, data requests |
+| **Software Dev** | Apps, tools, code, IT systems, integrations |
+| **KPI Meeting** | KPI reviews, metrics discussions, performance meetings |
+| **Top Production Issues** | Production problems, escalations, floor issues |
+| **Continuous Improvement** | Process improvements, Kaizen, efficiency initiatives |
+| **Business Transformation** | Strategic change, restructuring, major initiatives |
+| **Other** | Doesn't clearly fit any of the above |
+
 ### Title
 
-Imperative tone, ≤10 words (e.g., "Follow up with vendor on quote", "Approve budget request for Q3").
+Imperative tone, 10 words or fewer (e.g., "Follow up with vendor on quote", "Approve budget request for Q3").
 
 ---
 
 Produce a draft:
 
 ```
+Title:      <concise, imperative title>
 Category:   Follow-Up | Action Item | Decision | Admin | Strategic
+Topic:      <inferred topic — Luis will confirm>
 Priority:   High | Medium | Low
 Due Date:   YYYY-MM-DD  (or "Not set")
 Owner:      <name>
@@ -109,6 +127,7 @@ Format the body:
 ```
 **Priority:** High | Medium | Low
 **Due Date:** YYYY-MM-DD (or "Not set")
+**Topic:** <topic>
 
 <description text>
 ```
@@ -148,31 +167,43 @@ $ITEM_ID = $ITEM_JSON.id
 
 ---
 
-## Step 6 — Set the Owner Custom Field
+## Step 6 — Set Owner and Topic Fields
 
-Resolve the project node ID and field ID using PowerShell:
+Resolve project and field IDs using PowerShell, then set both fields:
 
 ```powershell
 $GH = "C:\Program Files\GitHub CLI\gh.exe"
 
+$fields = & $GH project field-list $PROJECT_NUMBER --owner LuisAtMAD --format json | ConvertFrom-Json
+
 $PROJECT_ID = (& $GH project list --owner LuisAtMAD --format json | ConvertFrom-Json).projects |
   Where-Object { $_.title -eq "Luis Planner" } | Select-Object -ExpandProperty id
 
-$FIELD_ID = (& $GH project field-list $PROJECT_NUMBER --owner LuisAtMAD --format json | ConvertFrom-Json).fields |
-  Where-Object { $_.name -eq "Owner" } | Select-Object -ExpandProperty id
+# Set Owner (text field)
+$OWNER_FIELD_ID = $fields.fields | Where-Object { $_.name -eq "Owner" } | Select-Object -ExpandProperty id
+if ($OWNER_FIELD_ID) {
+    & $GH project item-edit `
+      --project-id $PROJECT_ID `
+      --id $ITEM_ID `
+      --field-id $OWNER_FIELD_ID `
+      --text "<owner-name>"
+}
+
+# Set Topic (single-select field)
+$TOPIC_FIELD = $fields.fields | Where-Object { $_.name -eq "Topic" } | Select-Object -First 1
+$TOPIC_FIELD_ID = $TOPIC_FIELD.id
+$TOPIC_OPTION_ID = $TOPIC_FIELD.options | Where-Object { $_.name -eq "<topic-name>" } | Select-Object -ExpandProperty id
+
+if ($TOPIC_FIELD_ID -and $TOPIC_OPTION_ID) {
+    & $GH project item-edit `
+      --project-id $PROJECT_ID `
+      --id $ITEM_ID `
+      --field-id $TOPIC_FIELD_ID `
+      --single-select-option-id $TOPIC_OPTION_ID
+}
 ```
 
-If `$FIELD_ID` is empty or null: tell the user *"An 'Owner' text field doesn't exist in the project yet. Add it at https://github.com/users/LuisAtMAD/projects then re-run."* Stop.
-
-Otherwise, set the field:
-
-```powershell
-& $GH project item-edit `
-  --project-id $PROJECT_ID `
-  --id $ITEM_ID `
-  --field-id $FIELD_ID `
-  --text "<owner-name>"
-```
+If the Topic field or option ID cannot be found: warn the user but do not stop — Owner was already set.
 
 ---
 
@@ -180,6 +211,6 @@ Otherwise, set the field:
 
 Tell the user:
 - The issue URL (as a clickable link)
-- Confirmation it was added to the Luis Planner project with Owner set
+- Confirmation it was added to the Luis Planner project with Owner and Topic set
 
 One line each. Done.
