@@ -3,7 +3,7 @@ name: planner
 description: >
   BLOCKING: Always invoke this skill — NEVER use `gh issue create` directly. This skill is
   the only correct way to create manager tasks because it also sets the task category label,
-  adds the issue to the "Luis Planner" project, and sets the Owner and Topic fields.
+  adds the issue to the "Luis Planner" project, and sets the Owner, Topic, and Priority fields.
   Raw `gh` commands skip all of these. Trigger on: "new task", "create task",
   "add a task", "remind me to", "log a task", "make a note", "follow up on", "I need to",
   "don't let me forget", "track this", "add to my list", or any clear intent to log a
@@ -17,7 +17,7 @@ description: >
 Turn freeform input into a published GitHub issue in `LuisAtMAD/Luis`, added to the "Luis Planner" project.
 
 > **IMPORTANT — do not bypass this skill.**
-> Using `gh issue create` directly skips required steps: setting the category label, adding the issue to the Luis Planner project board, and setting the Owner and Topic fields. Always invoke this skill instead.
+> Using `gh issue create` directly skips required steps: setting the category label, adding the issue to the Luis Planner project board, and setting the Owner, Topic, and Priority fields. Always invoke this skill instead.
 
 ---
 
@@ -125,7 +125,6 @@ The label is the category (slugs: `follow-up`, `action-item`, `decision`, `admin
 Format the body:
 
 ```
-**Priority:** High | Medium | Low
 **Due Date:** YYYY-MM-DD (or "Not set")
 **Topic:** <topic>
 
@@ -167,9 +166,9 @@ $ITEM_ID = $ITEM_JSON.id
 
 ---
 
-## Step 6 — Set Owner and Topic Fields
+## Step 6 — Set Owner, Topic, and Priority Fields
 
-Resolve project and field IDs using PowerShell, then set both fields:
+Resolve project and field IDs using PowerShell, then set all three fields:
 
 ```powershell
 $GH = "C:\Program Files\GitHub CLI\gh.exe"
@@ -201,9 +200,24 @@ if ($TOPIC_FIELD_ID -and $TOPIC_OPTION_ID) {
       --field-id $TOPIC_FIELD_ID `
       --single-select-option-id $TOPIC_OPTION_ID
 }
+
+# Set Priority (single-select field)
+$PRIORITY_FIELD = $fields.fields | Where-Object { $_.name -eq "Priority" } | Select-Object -First 1
+$PRIORITY_FIELD_ID = $PRIORITY_FIELD.id
+$PRIORITY_OPTION_ID = $PRIORITY_FIELD.options | Where-Object { $_.name -eq "<priority-value>" } | Select-Object -ExpandProperty id
+
+if ($PRIORITY_FIELD_ID -and $PRIORITY_OPTION_ID) {
+    & $GH project item-edit `
+      --project-id $PROJECT_ID `
+      --id $ITEM_ID `
+      --field-id $PRIORITY_FIELD_ID `
+      --single-select-option-id $PRIORITY_OPTION_ID
+}
 ```
 
-If the Topic field or option ID cannot be found: warn the user but do not stop — Owner was already set.
+Where `<priority-value>` is one of: `High`, `Medium`, `Low` — matching the draft exactly.
+
+If the Topic or Priority field or option ID cannot be found: warn the user but do not stop — Owner was already set.
 
 ---
 
@@ -211,6 +225,6 @@ If the Topic field or option ID cannot be found: warn the user but do not stop �
 
 Tell the user:
 - The issue URL (as a clickable link)
-- Confirmation it was added to the Luis Planner project with Owner and Topic set
+- Confirmation it was added to the Luis Planner project with Owner, Topic, and Priority set
 
 One line each. Done.
