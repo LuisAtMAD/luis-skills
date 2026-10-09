@@ -9,7 +9,7 @@ description: >
   "don't let me forget", "track this", "add to my list", or any clear intent to log a
   personal to-do or action item — even without the word "task".
   Task categories: Follow-Up, Action Item, Decision, Admin, Strategic.
-  Topics: Supply Chain, Data Analysis, Software Dev, KPI Meeting, Top Production Issues, Continuous Improvement, Business Transformation, Other.
+  Topics: SC, DA, SW, KPI, TOP, CI, BT, Other.
 ---
 
 # Manager Task Creator
@@ -71,16 +71,18 @@ Infer from the notes (e.g., who owns the outcome or who this is about). If not m
 
 Infer the topic from the description using these options. Show your inference in the draft — Luis always confirms before the issue is created.
 
-| Topic | When to use |
-|-------|-------------|
-| **Supply Chain** | Suppliers, procurement, parts, inventory, logistics |
-| **Data Analysis** | Reports, dashboards, queries, data requests |
-| **Software Dev** | Apps, tools, code, IT systems, integrations |
-| **KPI Meeting** | KPI reviews, metrics discussions, performance meetings |
-| **Top Production Issues** | Production problems, escalations, floor issues |
-| **Continuous Improvement** | Process improvements, Kaizen, efficiency initiatives |
-| **Business Transformation** | Strategic change, restructuring, major initiatives |
-| **Other** | Doesn't clearly fit any of the above |
+The project's Topic field uses the **Code** column as its option names — always use the code in the draft, the body, and when setting the field. Luis may also give the code directly (e.g., "topic SC").
+
+| Code | Topic | When to use |
+|------|-------|-------------|
+| **SC** | Supply Chain | Suppliers, procurement, parts, inventory, logistics |
+| **DA** | Data Analysis | Reports, dashboards, queries, data requests |
+| **SW** | Software Dev | Apps, tools, code, IT systems, integrations |
+| **KPI** | KPI Meeting | KPI reviews, metrics discussions, performance meetings |
+| **TOP** | Top Production Issues | Production problems, escalations, floor issues |
+| **CI** | Continuous Improvement | Process improvements, Kaizen, efficiency initiatives |
+| **BT** | Business Transformation | Strategic change, restructuring, major initiatives |
+| **Other** | Other | Doesn't clearly fit any of the above |
 
 ### Title
 
@@ -93,7 +95,7 @@ Produce a draft:
 ```
 Title:      <concise, imperative title>
 Category:   Follow-Up | Action Item | Decision | Admin | Strategic
-Topic:      <inferred topic — Luis will confirm>
+Topic:      <topic code, e.g. SC — Luis will confirm>
 Priority:   High | Medium | Low
 Due Date:   YYYY-MM-DD  (or "Not set")
 Owner:      <name>
@@ -126,7 +128,7 @@ Format the body:
 
 ```
 **Due Date:** YYYY-MM-DD (or "Not set")
-**Topic:** <topic>
+**Topic:** <topic code>
 
 <description text>
 ```
@@ -191,7 +193,7 @@ if ($OWNER_FIELD_ID) {
 # Set Topic (single-select field)
 $TOPIC_FIELD = $fields.fields | Where-Object { $_.name -eq "Topic" } | Select-Object -First 1
 $TOPIC_FIELD_ID = $TOPIC_FIELD.id
-$TOPIC_OPTION_ID = $TOPIC_FIELD.options | Where-Object { $_.name -eq "<topic-name>" } | Select-Object -ExpandProperty id
+$TOPIC_OPTION_ID = $TOPIC_FIELD.options | Where-Object { $_.name -eq "<topic-code>" } | Select-Object -ExpandProperty id
 
 if ($TOPIC_FIELD_ID -and $TOPIC_OPTION_ID) {
     & $GH project item-edit `
